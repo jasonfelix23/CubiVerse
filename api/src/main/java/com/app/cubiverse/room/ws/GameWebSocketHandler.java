@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
+    private record PlayerState(String id, String name, double x, double y, String f) {}
     private final ObjectMapper mapper = new ObjectMapper();
 
     //roomCode -> connections
@@ -26,6 +27,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     //sessionId -> lightweight info
     private final Map<String, ClientInfo> clients = new ConcurrentHashMap<>();
+private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
 
     private record ClientInfo(String roomCode, String sessionId, String displayName, String userId) {}
 
@@ -36,20 +38,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         String userId = attr(session, "userId");
 
         rooms.computeIfAbsent(room, k -> ConcurrentHashMap.newKeySet()).add(session);
+        // optional: seed lastKnown with (0,0,down) if nothing yet
+    lastKnown.putIfAbsent(sid, new PlayerState(sid, displayName, 0, 0, "down"));
         clients.put(session.getId(), new ClientInfo(room, sid, displayName, userId));
-
-        //announce join 
-        broadcast(room, obj()
-        .put("t", "joined")
-        .put("id", sid)
-        .put("name", displayName == null ? "Guest" : displayName));
 
         var roster = mapper.createArrayNode();
         for (WebSocketSession s: rooms.getOrDefault(room, Set.of())) {
+            if (s == session) continue;
             var ci = clients.get(s.getId());
-            if (ci != null) {
-                roster.add(obj().put("id", ci.sessionId()).put("name", displayName == null ? "Guest" : ci.displayName()));
+            if (ci == null) continue;
+            PlayerState ps = lastKnown.get(ci.sessionId());
+            var p = obj().put("id", ci.sessionId()).put("name", ci.displayName() == null ? "Guest" : ci.displayName());
+
+            if (ps != null){
+                p.put("x", ps.x).put("y", ps.y);
+                if (ps.f() != null) p.put("f", ps.f);
             }
+            roster.add(p);
+            
         }
         session.sendMessage(new TextMessage(
             obj()
@@ -60,6 +66,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .set("roster", roster) 
                 .toString()
         ));
+
+        PlayerState me = lastKnown.get(sid);
+        var joined = obj()
+            .put("t", "joined")
+            .put("id", sid)
+            .put("name", displayName == null ? "Guest" : displayName);
+        if (me != null) {
+            joined.put("x", me.x()).put("y", me.y());
+            if (me.f() != null) joined.put("f", me.f());
+        }
+        broadcast(room, joined);
     }
 
     @Override
@@ -79,11 +96,38 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     "t", "welcome", "room", info.roomCode(), "id", info.sessionId(), "name", info.displayName() == null ? "Guest": info.displayName()
                 )));
             }
+            case "state:request" -> {
+                ClientInfo clientInfo = clients.get(session.getId());
+                if (clientInfo == null) break;
+
+                var players = mapper.createArrayNode();
+                for (WebSocketSession s : rooms.getOrDefault(clientInfo.roomCode(), Set.of())) {
+                    var ci = clients.get(s.getId());
+                    if (ci == null) continue;
+
+                    PlayerState ps = lastKnown.get(ci.sessionId());
+                    var p = obj()
+                        .put("id", ci.sessionId())
+                        .put("name", ci.displayName() == null ? "Guest" : ci.displayName());
+                    if (ps != null) {
+                        // use tx/ty to match your client normalize()
+                        p.put("tx", ps.x()).put("ty", ps.y());
+                        if (ps.f() != null) p.put("f", ps.f());
+                    }
+                    players.add(p);
+                }
+                    var snap = obj().put("t", "state:snapshot");
+                    snap.set("players", players);
+
+                    // ✅ send ONLY to the requester
+                    session.sendMessage(new TextMessage(snap.toString()));
+            }
             case "move" -> {
                 double tx = root.path("tx").asDouble();
                 double ty = root.path("ty").asDouble();
                 String f = root.path("f").asText(null);
-                System.out.println("Someone from the team is moving " + info.displayName() + " tx: " + tx + " ty: " + ty + " f: " + f );
+                String name = info.displayName() == null ? "Guest" : info.displayName();
+                lastKnown.put(info.sessionId(), new PlayerState(info.sessionId(), name, tx, ty, f != null ? f : "down"));
                 broadcast(info.roomCode(), obj()
                     .put("t", "move")
                     .put("id", info.sessionId())
@@ -140,7 +184,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (set == null | set.isEmpty()) return;
 
         var msg = new TextMessage(json.toString());
-        System.out.println(msg);
         for( WebSocketSession s: set) {
             try {
                 if (s.isOpen()) s.sendMessage(msg);

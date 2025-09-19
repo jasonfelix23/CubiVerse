@@ -13,7 +13,8 @@ import { Face } from "@/game/core/Game";
 export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
   const [roomName, setRoomName] = useState<string>("Room");
-  const { connected, players, chat, sendChat, sendMove } = useRoomSocket(id);
+  const { connected, bootstrapped, players, chat, sendChat, sendMove } =
+    useRoomSocket(id);
   const user = useSelector(selectUser);
   // <- Derive your identity here (auth, session, etc.)
 
@@ -50,6 +51,7 @@ export default function RoomPage() {
               sendMove(tx, ty, f)
             }
             wsConnected={connected}
+            bootstrapped={bootstrapped}
             localPlayer={localPlayer}
           />
         )}

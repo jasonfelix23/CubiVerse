@@ -1,7 +1,7 @@
 "use client";
 
 import { Face } from "@/game/core/Game";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export type WsInbound =
   | {
@@ -51,6 +51,7 @@ type Player = {
 
 export function useRoomSocket(roomId: string) {
   const [connected, setConnected] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [players, setPlayers] = useState<Record<string, Player>>({});
   const [chat, setChat] = useState<
     Array<{ id: string; name: string; text: string; at: number }>
@@ -160,6 +161,7 @@ export function useRoomSocket(roomId: string) {
               }
               return map;
             });
+            setBootstrapped(true);
             break;
           }
           case "joined": {
@@ -178,20 +180,6 @@ export function useRoomSocket(roomId: string) {
               return copy;
             });
             break;
-          // case "move":
-          //   setPlayers((prev) => ({
-          //     ...prev,
-          //     [msg.id]: {
-          //       ...(prev[msg.id] ?? {
-          //         id: msg.id,
-          //         name: prev[msg.id]?.name,
-          //       }),
-          //       x: msg.tx,
-          //       y: msg.ty,
-          //       f: msg.f as Face,
-          //     },
-          //   }));
-          //   break;
           case "move": {
             // move always has tx/ty; merge into existing or create if new
             const np = normalize({
@@ -256,6 +244,7 @@ export function useRoomSocket(roomId: string) {
 
   return {
     connected,
+    bootstrapped,
     players,
     chat,
     sendMove: (tx: number, ty: number, f: Face) =>
