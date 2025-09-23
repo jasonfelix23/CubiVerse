@@ -16,7 +16,7 @@ import { Keyboard, Video } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import NewMeetingModal from "./_components/NewMeetingModal";
-import { APIInterface, RoomDto } from "@/core/APIInterface";
+import { RoomDto } from "@/core/APIInterface";
 import cubi from "@/core/cubi";
 import { useRouter } from "next/navigation";
 import { buildPreJoinLink } from "../utils/url";
