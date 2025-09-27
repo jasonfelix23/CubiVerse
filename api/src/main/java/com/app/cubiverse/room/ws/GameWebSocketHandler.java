@@ -29,18 +29,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, ClientInfo> clients = new ConcurrentHashMap<>();
 private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
 
-    private record ClientInfo(String roomCode, String sessionId, String displayName, String userId) {}
+    private record ClientInfo(String roomCode, String sessionId, String displayName, String userId, String character) {}
 
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String room = attr(session, "roomCode");
         String sid = attr(session, "roomSessionId");
         String displayName = attr(session, "displayName");
         String userId = attr(session, "userId");
+        String character = attr(session, "character");
 
         rooms.computeIfAbsent(room, k -> ConcurrentHashMap.newKeySet()).add(session);
         // optional: seed lastKnown with (0,0,down) if nothing yet
     lastKnown.putIfAbsent(sid, new PlayerState(sid, displayName, 0, 0, "down"));
-        clients.put(session.getId(), new ClientInfo(room, sid, displayName, userId));
+        clients.put(session.getId(), new ClientInfo(room, sid, displayName, userId, character));
 
         var roster = mapper.createArrayNode();
         for (WebSocketSession s: rooms.getOrDefault(room, Set.of())) {
@@ -48,7 +49,7 @@ private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
             var ci = clients.get(s.getId());
             if (ci == null) continue;
             PlayerState ps = lastKnown.get(ci.sessionId());
-            var p = obj().put("id", ci.sessionId()).put("name", ci.displayName() == null ? "Guest" : ci.displayName());
+            var p = obj().put("id", ci.sessionId()).put("name", ci.displayName() == null ? "Guest" : ci.displayName()).put("color", ci.character());
 
             if (ps != null){
                 p.put("x", ps.x).put("y", ps.y);
@@ -63,6 +64,7 @@ private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
                 .put("room", room)
                 .put("id", sid)
                 .put("name", displayName == null ? "Guest" : displayName)
+                .put("color", character)
                 .set("roster", roster) 
                 .toString()
         ));
@@ -71,7 +73,8 @@ private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
         var joined = obj()
             .put("t", "joined")
             .put("id", sid)
-            .put("name", displayName == null ? "Guest" : displayName);
+            .put("name", displayName == null ? "Guest" : displayName)
+            .put("color", character);
         if (me != null) {
             joined.put("x", me.x()).put("y", me.y());
             if (me.f() != null) joined.put("f", me.f());
@@ -93,7 +96,7 @@ private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
         switch (t) {
             case "join" -> {
                 session.sendMessage(new TextMessage(json(
-                    "t", "welcome", "room", info.roomCode(), "id", info.sessionId(), "name", info.displayName() == null ? "Guest": info.displayName()
+                    "t", "welcome", "room", info.roomCode(), "id", info.sessionId(), "name", info.displayName() == null ? "Guest": info.displayName(), "color", info.character()
                 )));
             }
             case "state:request" -> {
@@ -108,7 +111,8 @@ private final Map<String, PlayerState> lastKnown = new ConcurrentHashMap<>();
                     PlayerState ps = lastKnown.get(ci.sessionId());
                     var p = obj()
                         .put("id", ci.sessionId())
-                        .put("name", ci.displayName() == null ? "Guest" : ci.displayName());
+                        .put("name", ci.displayName() == null ? "Guest" : ci.displayName())
+                        .put("color", ci.character());
                     if (ps != null) {
                         // use tx/ty to match your client normalize()
                         p.put("tx", ps.x()).put("ty", ps.y());

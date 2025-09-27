@@ -222,7 +222,14 @@ export class Game {
   syncRemotePlayers(
     players: Record<
       string,
-      { id: string; name: string; x?: number; y?: number; f?: string | null }
+      {
+        id: string;
+        name: string;
+        x?: number;
+        y?: number;
+        f?: string | null;
+        color?: string;
+      }
     >
   ) {
     if (
@@ -249,7 +256,7 @@ export class Game {
           (typeof p.y === "number"
             ? p.y
             : (this.world as any).cfg.height * ts * 0.5) | 0;
-        const set = this.assets.getSet(this.cfg.player.color || "blue");
+        const set = this.assets.getSet((p.color as ColorName) || "green");
         ent = new Player(p.id, sx, sy, set, p.name ?? p.id);
         ent.updateDimensions(scale);
         this.remotes.set(p.id, ent);

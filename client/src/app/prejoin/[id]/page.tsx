@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SelectItem } from "@radix-ui/react-select";
 import cubi from "@/core/cubi";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -28,6 +28,7 @@ export default function PrejoinPage() {
     roomName: string;
     occupants: number;
   } | null>(null);
+  const [color, setColor] = useState("red");
   const [cams, setCams] = useState<MediaDeviceInfo[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [camId, setCamId] = useState<string>();
@@ -78,7 +79,7 @@ export default function PrejoinPage() {
     }
     try {
       // 💡 Always use the account username; ignore any custom input
-      await cubi.api.createRoomSession(id, username);
+      await cubi.api.createRoomSession(id, color, username);
       router.push(`/rooms/${id}`);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to join room");
@@ -147,6 +148,31 @@ export default function PrejoinPage() {
               Display name is your account username. To change it, update your
               profile.
             </div>
+            <Select value={color} onValueChange={(val) => setColor(val)}>
+              <SelectTrigger className={`text-${color}-600 w-[180px]`}>
+                <SelectValue placeholder="Select character" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="red" className="text-red-600">
+                  Red
+                </SelectItem>
+                <SelectItem value="blue" className="text-blue-600">
+                  Blue
+                </SelectItem>
+                <SelectItem value="yellow" className="text-yellow-600">
+                  Yellow
+                </SelectItem>
+                <SelectItem value="green" className="text-green-600">
+                  Green
+                </SelectItem>
+                <SelectItem value="purple" className="text-purple-600">
+                  Purple
+                </SelectItem>
+                <SelectItem value="pink" className="text-pink-600">
+                  Pink
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
             <Button onClick={handleJoin} disabled={loading || !username}>
               {loading ? "Preparing…" : "Join room"}

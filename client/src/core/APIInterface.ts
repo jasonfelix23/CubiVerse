@@ -148,6 +148,7 @@ export class APIInterface {
 
   async createRoomSession(
     code: string,
+    color: string,
     displayName?: string
   ): Promise<{
     sessionId: string;
@@ -157,7 +158,10 @@ export class APIInterface {
       method: "POST",
       headers: this._buildHeaders(),
       credentials: "include",
-      body: JSON.stringify({ displayName: displayName || undefined }),
+      body: JSON.stringify({
+        displayName: displayName || undefined,
+        character: color,
+      }),
     });
     if (!res.ok) throw new Error("Failed to Join room");
     return res.json();

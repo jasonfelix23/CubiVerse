@@ -72,14 +72,21 @@ export default function RoomPage() {
     };
   }, [id]);
 
-  // 3) Derive local identity for the canvas
-  const localPlayer = useMemo(() => {
-    if (!user) return null;
-    return { id: user.userId, name: user.username };
-  }, [user]);
+  const {
+    connected,
+    bootstrapped,
+    players,
+    remotePlayers,
+    self,
+    chat,
+    sendChat,
+    sendMove,
+  } = useRoomSocket(id);
 
-  const { connected, bootstrapped, players, chat, sendChat, sendMove } =
-    useRoomSocket(id);
+  const localPlayer = useMemo(() => {
+    if (!user || !self) return null;
+    return { id: user.userId, name: user.username, color: self.color }; // <- color from WS
+  }, [user, self]);
 
   // 5) Gate rendering so MapCanvas never sees a null localPlayer on first mount
   if (!authBootstrapped) {
@@ -114,6 +121,7 @@ export default function RoomPage() {
         chat={chat}
         onSendChat={sendChat}
         presenceCount={Object.keys(players).length}
+        selfId={self?.id}
       />
     </main>
   );

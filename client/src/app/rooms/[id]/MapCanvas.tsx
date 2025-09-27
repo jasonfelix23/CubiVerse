@@ -2,6 +2,7 @@
 import { Face, Game } from "@/game/core/Game";
 import { useEffect, useRef, useState } from "react";
 import LoadingOverlay from "./_components/LoadingOverlay";
+import { ColorName } from "@/game/types";
 
 type Player = {
   id: string;
@@ -9,13 +10,14 @@ type Player = {
   x: number;
   y: number;
   f: Face;
+  color: string;
 };
 type MapProps = {
   players: Record<string, Player>;
   onLocalMove: (tx: number, ty: number, f: Face) => void; // expects TILES
   wsConnected: boolean;
   bootstrapped: boolean;
-  localPlayer: { id: string; name: string };
+  localPlayer: { id: string; name: string; color: string };
 };
 
 const MAP_W = 75;
@@ -61,7 +63,11 @@ export default function MapCanvas({
           pngSrc: "/Map/Office_map_v1_16x16.png",
           collisionCode: 849,
         },
-        player: { id: localPlayer.id, name: localPlayer.name } as any,
+        player: {
+          id: localPlayer.id,
+          name: localPlayer.name,
+          color: localPlayer.color as ColorName,
+        } as any,
         debug: { drawCollisions: true },
       });
 
@@ -101,7 +107,7 @@ export default function MapCanvas({
       gameRef.current?.dispose();
       gameRef.current = null;
     };
-  }, [localPlayer.id, localPlayer.name]);
+  }, [localPlayer.id, localPlayer.name, localPlayer.color]);
 
   // Sync remotes (unchanged)
   useEffect(() => {

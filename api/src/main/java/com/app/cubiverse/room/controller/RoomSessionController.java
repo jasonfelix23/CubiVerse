@@ -40,14 +40,15 @@ public class RoomSessionController {
         return ResponseEntity.ok(new RoomMetaResponse(code, room.getName(), 0));
     }
 
-    public record CreateSessionRequest(String displayName) { }
+    public record CreateSessionRequest(String displayName, String character) { }
     public record CreateSessionResponse(String sessionId, Instant exp) {}
 
     @PostMapping("/{code}/session")
     public ResponseEntity<CreateSessionResponse> createSession(@PathVariable String code, @RequestBody(required = false) CreateSessionRequest body) {
         if (rooms.findByRoomCode(code).isEmpty()) return ResponseEntity.notFound().build();
+        System.out.println(body);
 
-        var res = sessions.create(code, null, body != null? body.displayName(): null);
+        var res = sessions.create(code, null, body != null? body.displayName(): null, body.character());
         ResponseCookie cookie = ResponseCookie.from("roomSession." + code, res.sessionId()).httpOnly(true).secure(false).sameSite("Lax").path("/").maxAge(java.time.Duration.between(Instant.now(), res.expiresAt())).build();
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString()).body(new CreateSessionResponse(res.sessionId(), res.expiresAt()));
     }

@@ -9,15 +9,25 @@ export type WsInbound =
       room: string;
       id: string;
       name: string;
+      color?: string;
       roster?: Array<{
         id: string;
         name: string;
+        color?: string;
         x?: number;
         y?: number;
         f?: Face;
       }>;
     }
-  | { t: "joined"; id: string; name: string; x?: number; y?: number; f?: Face }
+  | {
+      t: "joined";
+      id: string;
+      name: string;
+      color?: string;
+      x?: number;
+      y?: number;
+      f?: Face;
+    }
   | {
       t: "state:snapshot";
       players: Array<{
@@ -28,16 +38,17 @@ export type WsInbound =
         tx?: number;
         ty?: number;
         f?: Face;
+        color?: string;
       }>;
     }
   | { t: "left"; id: string }
-  | { t: "move"; id: string; tx: number; ty: number; f: Face }
+  | { t: "move"; id: string; tx: number; ty: number; f: Face; color?: string }
   | { t: "chat"; id: string; name: string; text: string; at: number }
   | { t: "error"; msg: string };
 
 export type WsOutbound =
   | { t: "join" }
-  | { t: "state:request" } // <-- ask server to send a full snapshot
+  | { t: "state:request" }
   | { t: "move"; tx: number; ty: number; f: Face }
   | { t: "chat"; text: string };
 
@@ -47,12 +58,18 @@ type Player = {
   x: number;
   y: number;
   f: Face;
+  color: string;
 };
 
 export function useRoomSocket(roomId: string) {
   const [connected, setConnected] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [players, setPlayers] = useState<Record<string, Player>>({});
+  const [self, setSelf] = useState<{
+    id: string;
+    name: string;
+    color: string;
+  } | null>(null);
   const [chat, setChat] = useState<
     Array<{ id: string; name: string; text: string; at: number }>
   >([]);
@@ -76,6 +93,7 @@ export function useRoomSocket(roomId: string) {
       tx?: number;
       ty?: number;
       f?: Face;
+      color?: string;
     }
   ): Player | null => {
     if (!p || !p.id) return null;
@@ -97,6 +115,7 @@ export function useRoomSocket(roomId: string) {
       x: typeof tx === "number" ? tx : 0,
       y: typeof ty === "number" ? ty : 0,
       f: (p.f as Face) ?? "down",
+      color: p.color ?? "green",
     };
   };
 
@@ -137,6 +156,12 @@ export function useRoomSocket(roomId: string) {
 
         switch (msg.t) {
           case "welcome": {
+            window.console.log(msg);
+            setSelf({
+              id: msg.id,
+              name: msg.name,
+              color: msg.color ?? "green",
+            });
             // If server includes a roster here, apply it right away
             if (msg.roster && msg.roster.length) {
               setPlayers(() => {
@@ -151,6 +176,7 @@ export function useRoomSocket(roomId: string) {
             break;
           }
           case "state:snapshot": {
+            window.console.log(msg);
             // Preferred: server replies with a dedicated snapshot
             const list = Array.isArray(msg.players) ? msg.players : [];
             setPlayers(() => {
@@ -165,6 +191,7 @@ export function useRoomSocket(roomId: string) {
             break;
           }
           case "joined": {
+            window.console.log(msg);
             const np = normalize(msg);
             if (!np) break;
             setPlayers((prev) => ({
@@ -242,10 +269,18 @@ export function useRoomSocket(roomId: string) {
     ws.send(JSON.stringify(out));
   };
 
+  const remotePlayers: Record<string, Player> = self
+    ? Object.fromEntries(
+        Object.entries(players).filter(([id]) => id !== self.id)
+      )
+    : players;
+
   return {
     connected,
     bootstrapped,
     players,
+    remotePlayers,
+    self,
     chat,
     sendMove: (tx: number, ty: number, f: Face) =>
       send({ t: "move", tx, ty, f }),

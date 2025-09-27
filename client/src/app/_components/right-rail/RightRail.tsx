@@ -45,19 +45,45 @@ type YouState = {
   dnd: boolean;
   presence: "available" | "busy" | "in-call" | "away";
 };
+type WirePlayer = {
+  id: string;
+  name: string;
+  x?: number;
+  y?: number;
+  f?: string | null;
+  color?: string; // optional; falls back to a default tint
+};
 
 export type ChatMsg = { id: string; name: string; text: string; at: number };
 
 type RightRailProps = {
   roomName: string;
-  players: Record<
-    string,
-    { id: string; name: string; x?: number; y?: number; f?: string | null }
-  >;
+  players: Record<string, WirePlayer>;
   chat: ChatMsg[];
   onSendChat: (t: string) => void;
   presenceCount?: number;
+  selfId?: string;
 };
+
+// small helper: color name → hex (handles hex passthrough)
+const COLOR_TO_HEX: Record<string, string> = {
+  red: "#ef4444",
+  blue: "#2563eb",
+  yellow: "#eab308",
+  green: "#16a34a",
+  purple: "#7c3aed",
+  pink: "#db2777",
+  teal: "#14b8a6",
+  orange: "#f97316",
+};
+const asHex = (c?: string) =>
+  !c
+    ? "#2563eb"
+    : c.startsWith("#")
+    ? c
+    : COLOR_TO_HEX[c.toLowerCase()] ?? "#2563eb";
+
+const NEARBY_RADIUS_TILES = 8; // tweak as needed
 
 export default function RightRail({
   roomName,
@@ -65,6 +91,7 @@ export default function RightRail({
   chat,
   onSendChat,
   presenceCount: presenceCountProp,
+  selfId,
 }: RightRailProps) {
   const [localYou, setLocalYou] = useState<YouState>({
     name: "You",
@@ -79,49 +106,62 @@ export default function RightRail({
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
+  // locate "me" in tile space
+  const selfTile = useMemo(() => {
+    if (!selfId) return null;
+    const me = players[selfId];
+    if (me && typeof me.x === "number" && typeof me.y === "number") {
+      return { x: me.x, y: me.y };
+    }
+    return null;
+  }, [players, selfId]);
+
   // Convert players record → PlayerSummary[]
-  const playerSummaries: PlayerSummary[] = useMemo(() => {
-    const list = Object.values(players ?? {}).map((p) => ({
-      id: p.id,
-      name: p.name ?? "Guest",
-      color: "#2563eb", // simple default tint; can be enhanced later
-      presence: "available" as const,
-      distanceTiles: 0, // you can compute this once you track local <-> remote distances
-    }));
-    // Fallback demo list if none present
-    return list.length
-      ? list
-      : [
-          {
-            id: "p1",
-            name: "Gracia",
-            color: "#111827",
-            presence: "available",
-            distanceTiles: 2.0,
-          },
-          {
-            id: "p2",
-            name: "Noah",
-            color: "#2563eb",
-            presence: "busy",
-            distanceTiles: 65.3,
-          },
-          {
-            id: "p3",
-            name: "Ava",
-            color: "#ef4444",
-            presence: "in-call",
-            distanceTiles: 28.0,
-          },
-          {
-            id: "p4",
-            name: "Liam",
-            color: "#16a34a",
-            presence: "available",
-            distanceTiles: 42.2,
-          },
-        ];
-  }, [players]);
+  // Build summaries with distances (exclude self)
+  console.log(selfTile);
+  const {
+    nearby,
+    others,
+    allSorted,
+  }: {
+    nearby: PlayerSummary[];
+    others: PlayerSummary[];
+    allSorted: PlayerSummary[];
+  } = useMemo(() => {
+    const list: PlayerSummary[] = [];
+
+    for (const p of Object.values(players ?? {})) {
+      if (!p?.id) continue;
+      if (selfId && p.id === selfId) continue; // exclude me
+
+      const hasCoords = typeof p.x === "number" && typeof p.y === "number";
+      const dist =
+        selfTile && hasCoords
+          ? Math.hypot(p.x! - selfTile.x, p.y! - selfTile.y)
+          : Number.POSITIVE_INFINITY;
+
+      list.push({
+        id: p.id,
+        name: p.name ?? "Guest",
+        color: asHex(p.color),
+        presence: "available",
+        distanceTiles: Number.isFinite(dist)
+          ? Number(dist.toFixed(1))
+          : undefined,
+      });
+    }
+
+    // partition
+    const near = list
+      .filter((p) => (p.distanceTiles ?? Infinity) <= NEARBY_RADIUS_TILES)
+      .sort((a, b) => (a.distanceTiles ?? 1e9) - (b.distanceTiles ?? 1e9));
+
+    const far = list
+      .filter((p) => (p.distanceTiles ?? Infinity) > NEARBY_RADIUS_TILES)
+      .sort((a, b) => (a.distanceTiles ?? 1e9) - (b.distanceTiles ?? 1e9));
+
+    return { nearby: near, others: far, allSorted: [...near, ...far] };
+  }, [players, selfId, selfTile]);
 
   // Optional mock panels (safe defaults)
   const mockPings: PingItem[] = [];
@@ -158,7 +198,9 @@ export default function RightRail({
     }
   }
 
-  const presenceCount = presenceCountProp ?? playerSummaries.length;
+  console.log(nearby);
+  console.log(others);
+  const presenceCount = presenceCountProp ?? Object.keys(players ?? {}).length;
 
   return (
     <aside className="h-screen w-[clamp(300px, 24vw,380px)] border-1 bg-gray-100 flex flex-col">
@@ -279,7 +321,11 @@ export default function RightRail({
         <ScrollArea className="flex-1">
           <div className="p-3 space-y-4">
             <TabsContent value="people" className="m-0">
-              <PeoplePanel players={playerSummaries} handlers={handlers} />
+              <PeoplePanel
+                nearbyPlayers={nearby}
+                otherPlayers={others}
+                handlers={handlers}
+              />
             </TabsContent>
 
             <TabsContent value="chat" className="m-0">
@@ -290,7 +336,7 @@ export default function RightRail({
               <MeetingsPanel
                 incoming={mockPings}
                 activeCall={{
-                  participants: playerSummaries.filter(
+                  participants: allSorted.filter(
                     (p) => p.presence === "in-call"
                   ),
                 }}

@@ -24,6 +24,9 @@ public class RoomSession {
     @Column(name = "display_name")
     private String displayName;
 
+    @Column(name = "character")
+    private String character;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -32,11 +35,12 @@ public class RoomSession {
 
     protected RoomSession() {}
 
-    public RoomSession(String sessionId, String roomCode, String userId, String displayName, Instant createdAt, Instant expiresAt) {
+    public RoomSession(String sessionId, String roomCode, String userId, String displayName, String character, Instant createdAt, Instant expiresAt) {
         this.sessionId = sessionId;
         this.roomCode = roomCode;
         this.userId = userId;
         this.displayName = displayName;
+        this.character = character;
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
     }
@@ -45,6 +49,7 @@ public class RoomSession {
     public String getRoomCode() { return roomCode; }
     public String getUserId() { return userId; }
     public String getDisplayName() { return displayName; }
+    public String getCharacter() { return character; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getExpiresAt() { return expiresAt; }
 

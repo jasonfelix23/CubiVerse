@@ -106,8 +106,6 @@ const NewMeetingModal = ({
               <Switch checked={npcEnabled} onCheckedChange={setNpcEnabled} />
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label>Select Character</Label>
             <Select
               value={character}
               onValueChange={(val) => setCharacter(val)}
@@ -127,7 +125,6 @@ const NewMeetingModal = ({
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
           <div className="w-full flex gap-2 p-2 border-1 border-amber-200 rounded-lg text-amber-400">
             <InfoIcon width={40} height={40} />
             <h6>

@@ -7,7 +7,8 @@ import { Separator } from "@radix-ui/react-separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Props = {
-  players: PlayerSummary[];
+  nearbyPlayers: PlayerSummary[];
+  otherPlayers: PlayerSummary[];
   handlers?: RailHandlers;
 };
 
@@ -71,11 +72,17 @@ function PlayerRow({
   );
 }
 
-export default function PeoplePanel({ players, handlers }: Props) {
-  const nearby = players
-    .filter((p) => (p.distanceTiles ?? 99) <= 6)
-    .sort((a, b) => (a.distanceTiles ?? 0) - (b.distanceTiles ?? 0));
-  const everyone = players.sort((a, b) => a.name.localeCompare(b.name));
+export default function PeoplePanel({
+  nearbyPlayers,
+  otherPlayers,
+  handlers,
+}: Props) {
+  const nearby = nearbyPlayers.sort(
+    (a, b) => (a.distanceTiles ?? 0) - (b.distanceTiles ?? 0)
+  );
+  const everyone = otherPlayers.sort(
+    (a, b) => (a.distanceTiles ?? 0) - (b.distanceTiles ?? 0)
+  );
 
   return (
     <div className="flex flex-col gap-3">

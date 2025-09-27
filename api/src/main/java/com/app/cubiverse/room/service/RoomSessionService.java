@@ -20,12 +20,12 @@ public class RoomSessionService {
 
     public record CreateSessionResult(String sessionId, Instant expiresAt){};
 
-    public CreateSessionResult create(String roomCode, String userId, String displayName) {
+    public CreateSessionResult create(String roomCode, String userId, String displayName, String character) {
         final String sessionId = UUID.randomUUID().toString();
         final Instant now = Instant.now(clock);
         final Instant exp = now.plus(TTL);
 
-        repo.save(new RoomSession(sessionId, roomCode, userId, displayName, now, exp));
+        repo.save(new RoomSession(sessionId, roomCode, userId, displayName, character, now, exp));
         return new CreateSessionResult(sessionId, exp);
     }
 

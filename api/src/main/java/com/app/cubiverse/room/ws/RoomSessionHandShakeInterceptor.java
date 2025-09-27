@@ -37,6 +37,7 @@ public class RoomSessionHandShakeInterceptor implements HandshakeInterceptor {
                         attributes.put("roomSessionId", c.getValue());
                         attributes.put("displayName", opt.get().getDisplayName());
                         attributes.put("userId", opt.get().getUserId());
+                        attributes.put("character", opt.get().getCharacter());
                         return true;
                     }
                 }
